@@ -26,7 +26,7 @@
                 </StackPanel>
             </DockPanel>
         </Border>
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="24,20,24,32">
+        <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="24,20,24,32">
             <ContentControl x:Name="Host"/>
         </ScrollViewer>
     </DockPanel>

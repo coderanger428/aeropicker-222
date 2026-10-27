@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mock="clr-namespace:AeroPicker.Mock.Models"
+             xmlns:views="clr-namespace:AeroPicker.Views"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime">
     <Grid>
         <Grid.ColumnDefinitions>
@@ -26,22 +27,26 @@
                 <TextBlock x:Name="Lede" Foreground="#6D655C" TextWrapping="Wrap" Margin="0,8,0,8"/>
 
                 <StackPanel x:Name="Step0">
-                    <TextBlock Text="Full name" Style="{StaticResource FieldLabel}"/>
-                    <TextBox Text="{Binding Profile.FullName, UpdateSourceTrigger=PropertyChanged}"/>
-                    <TextBlock Text="Email" Style="{StaticResource FieldLabel}"/>
-                    <TextBox Text="{Binding Profile.Email, UpdateSourceTrigger=PropertyChanged}"/>
-                    <TextBlock Text="Phone" Style="{StaticResource FieldLabel}"/>
-                    <TextBox Text="{Binding Profile.Phone, UpdateSourceTrigger=PropertyChanged}"/>
-                    <TextBlock Text="Location" Style="{StaticResource FieldLabel}"/>
-                    <TextBox Text="{Binding Profile.Location, UpdateSourceTrigger=PropertyChanged}"/>
-                    <TextBlock Text="Summary" Style="{StaticResource FieldLabel}"/>
-                    <TextBox Text="{Binding Profile.Summary, UpdateSourceTrigger=PropertyChanged}"
-                             AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90"
-                             VerticalScrollBarVisibility="Auto"/>
+                    <views:FieldCaption Text="Full name" Requirement="Required" Value="{Binding Text, ElementName=NameBox}"/>
+                    <TextBox x:Name="NameBox" Text="{Binding Profile.FullName, UpdateSourceTrigger=PropertyChanged}"/>
+                    <views:FieldCaption Text="Email" Requirement="Required" Value="{Binding Text, ElementName=EmailBox}"/>
+                    <TextBox x:Name="EmailBox" Text="{Binding Profile.Email, UpdateSourceTrigger=PropertyChanged}"/>
+                    <views:FieldCaption Text="Phone" Requirement="Required" Value="{Binding Text, ElementName=PhoneBox}"/>
+                    <TextBox x:Name="PhoneBox" Text="{Binding Profile.Phone, UpdateSourceTrigger=PropertyChanged}"/>
+                    <views:FieldCaption Text="Location" Requirement="Required" Value="{Binding Text, ElementName=LocationBox}"/>
+                    <TextBox x:Name="LocationBox" Text="{Binding Profile.Location, UpdateSourceTrigger=PropertyChanged}"/>
+                    <views:FieldCaption Text="LinkedIn" Requirement="Required" Value="{Binding Text, ElementName=LinkedInBox}"/>
+                    <TextBox x:Name="LinkedInBox" Text="{Binding Profile.LinkedIn, UpdateSourceTrigger=PropertyChanged}"/>
+                    <views:FieldCaption Text="GitHub" Requirement="Optional" Value="{Binding Text, ElementName=GitHubBox}"/>
+                    <TextBox x:Name="GitHubBox" Text="{Binding Profile.GitHub, UpdateSourceTrigger=PropertyChanged}"/>
+                    <views:FieldCaption Text="X" Requirement="Optional" Value="{Binding Text, ElementName=XBox}"/>
+                    <TextBox x:Name="XBox" Text="{Binding Profile.X, UpdateSourceTrigger=PropertyChanged}"/>
+                    <views:FieldCaption Text="Facebook" Requirement="Optional" Value="{Binding Text, ElementName=FacebookBox}"/>
+                    <TextBox x:Name="FacebookBox" Text="{Binding Profile.Facebook, UpdateSourceTrigger=PropertyChanged}"/>
                 </StackPanel>
 
                 <StackPanel x:Name="Step1" Visibility="Collapsed">
-                    <TextBlock Text="No roles yet." Foreground="#6D655C" Margin="0,8,0,8">
+                    <TextBlock Text="No companies yet." Foreground="#6D655C" Margin="0,8,0,8">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Visibility" Value="Collapsed"/>
@@ -59,42 +64,40 @@
                                 <Border BorderBrush="#DDD4C6" BorderThickness="1" CornerRadius="14" Padding="14" Margin="0,0,0,12">
                                     <StackPanel>
                                         <DockPanel>
-                                            <Button DockPanel.Dock="Right" Content="Remove" Style="{StaticResource TextButton}" Click="RemoveCareer_Click"/>
-                                            <TextBlock Text="Role" FontWeight="SemiBold"/>
+                                            <Button DockPanel.Dock="Right" Content="Remove" VerticalAlignment="Center" Style="{StaticResource TextButton}" Click="RemoveCareer_Click"/>
+                                            <views:FieldCaption Text="Company" Requirement="Required" Margin="0,0,0,6" Value="{Binding Text, ElementName=CompanyBox}"/>
                                         </DockPanel>
-                                        <TextBlock Text="Job title" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"/>
-                                        <TextBlock Text="Employer" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Text="{Binding Employer, UpdateSourceTrigger=PropertyChanged}"/>
-                                        <Grid Margin="0,0,0,0">
+                                        <TextBox x:Name="CompanyBox" Text="{Binding Company, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <views:FieldCaption Text="Location" Requirement="Optional" Value="{Binding Text, ElementName=CompanyLocationBox}"/>
+                                        <TextBox x:Name="CompanyLocationBox" Text="{Binding Location, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="12"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0">
-                                                <TextBlock Text="Start" Style="{StaticResource FieldLabel}"/>
-                                                <TextBox Text="{Binding Start, UpdateSourceTrigger=PropertyChanged}"/>
+                                                <views:FieldCaption Text="Start" Requirement="Required" Value="{Binding Text, ElementName=StartBox}"/>
+                                                <TextBox x:Name="StartBox" Text="{Binding Start, UpdateSourceTrigger=PropertyChanged}"/>
                                             </StackPanel>
                                             <StackPanel Grid.Column="2">
-                                                <TextBlock Text="End" Style="{StaticResource FieldLabel}"/>
-                                                <TextBox Text="{Binding End, UpdateSourceTrigger=PropertyChanged}"
-                                                         IsEnabled="{Binding Current, Converter={StaticResource InverseBool}}"/>
+                                                <views:FieldCaption Text="End" Value="{Binding Text, ElementName=EndBox}"
+                                                                    Requirement="{Binding IsChecked, ElementName=CurrentBox, Converter={StaticResource EndDateRequirement}}"/>
+                                                <TextBox x:Name="EndBox" Text="{Binding End, UpdateSourceTrigger=PropertyChanged}"
+                                                         IsEnabled="{Binding IsChecked, ElementName=CurrentBox, Converter={StaticResource InverseBool}}"/>
                                             </StackPanel>
                                         </Grid>
-                                        <CheckBox Content="I currently work here" IsChecked="{Binding Current}" Margin="0,12,0,0"/>
-                                        <TextBlock Text="Highlights" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Text="{Binding Highlights, UpdateSourceTrigger=PropertyChanged}"
-                                                 AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80"/>
+                                        <CheckBox x:Name="CurrentBox" Content="Currently working" IsChecked="{Binding Current}" Margin="0,12,0,0"/>
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <Button Content="Add a role" HorizontalAlignment="Left" Style="{StaticResource SecondaryButton}" Click="AddCareer_Click"/>
+                    <Button Content="Add company" HorizontalAlignment="Left" Style="{StaticResource SecondaryButton}" Click="AddCareer_Click"/>
                 </StackPanel>
 
                 <StackPanel x:Name="Step2" Visibility="Collapsed">
+                    <views:FieldCaption x:Name="SkillCaption" Text="Skills" Requirement="Optional"/>
                     <TextBlock Text="No skills yet." Foreground="#6D655C" Margin="0,8,0,8">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
@@ -116,16 +119,13 @@
                                 <Border Background="#F6F1E8" CornerRadius="12" Margin="0,0,8,8" Padding="10,4,4,4">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
-                                        <Button Content="Remove" Style="{StaticResource TextButton}" Click="RemoveSkill_Click"/>
+                                        <Button Content="×" FontSize="16" Padding="6,0" VerticalAlignment="Center" ToolTip="Remove" Style="{StaticResource TextButton}" Click="RemoveSkill_Click"/>
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <DockPanel Margin="0,8,0,0">
-                        <Button DockPanel.Dock="Right" Content="Add" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="AddSkill_Click"/>
-                        <TextBox x:Name="SkillBox" PreviewKeyDown="SkillBox_PreviewKeyDown"/>
-                    </DockPanel>
+                    <views:TechNameBox x:Name="SkillEntry" Margin="0,8,0,0" Committed="Skill_Committed"/>
                 </StackPanel>
 
                 <StackPanel x:Name="Step3" Visibility="Collapsed">
@@ -150,12 +150,12 @@
                                             <Button DockPanel.Dock="Right" Content="Remove" Style="{StaticResource TextButton}" Click="RemoveProject_Click"/>
                                             <TextBlock Text="Project" FontWeight="SemiBold"/>
                                         </DockPanel>
-                                        <TextBlock Text="Project" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
-                                        <TextBlock Text="Your role" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Text="{Binding Role, UpdateSourceTrigger=PropertyChanged}"/>
-                                        <TextBlock Text="What you did" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Text="{Binding Details, UpdateSourceTrigger=PropertyChanged}"
+                                        <views:FieldCaption Text="Project" Requirement="Required" Value="{Binding Text, ElementName=ProjectBox}"/>
+                                        <TextBox x:Name="ProjectBox" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <views:FieldCaption Text="Your role" Requirement="Required" Value="{Binding Text, ElementName=ProjectRoleBox}"/>
+                                        <TextBox x:Name="ProjectRoleBox" Text="{Binding Role, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <views:FieldCaption Text="What you did" Requirement="Optional" Value="{Binding Text, ElementName=ProjectDetailsBox}"/>
+                                        <TextBox x:Name="ProjectDetailsBox" Text="{Binding Details, UpdateSourceTrigger=PropertyChanged}"
                                                  AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80"/>
                                     </StackPanel>
                                 </Border>
@@ -187,12 +187,12 @@
                                             <Button DockPanel.Dock="Right" Content="Remove" Style="{StaticResource TextButton}" Click="RemoveEducation_Click"/>
                                             <TextBlock Text="Education" FontWeight="SemiBold"/>
                                         </DockPanel>
-                                        <TextBlock Text="Institution" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Text="{Binding Institution, UpdateSourceTrigger=PropertyChanged}"/>
-                                        <TextBlock Text="Credential" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Text="{Binding Credential, UpdateSourceTrigger=PropertyChanged}"/>
-                                        <TextBlock Text="Year" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Text="{Binding Year, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <views:FieldCaption Text="Institution" Requirement="Required" Value="{Binding Text, ElementName=InstitutionBox}"/>
+                                        <TextBox x:Name="InstitutionBox" Text="{Binding Institution, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <views:FieldCaption Text="Credential" Requirement="Required" Value="{Binding Text, ElementName=CredentialBox}"/>
+                                        <TextBox x:Name="CredentialBox" Text="{Binding Credential, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <views:FieldCaption Text="Year" Requirement="Optional" Value="{Binding Text, ElementName=EducationYearBox}"/>
+                                        <TextBox x:Name="EducationYearBox" Text="{Binding Year, UpdateSourceTrigger=PropertyChanged}"/>
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>
@@ -223,17 +223,17 @@
                                             <Button DockPanel.Dock="Right" Content="Remove" Style="{StaticResource TextButton}" Click="RemoveCredential_Click"/>
                                             <TextBlock Text="Item" FontWeight="SemiBold"/>
                                         </DockPanel>
-                                        <TextBlock Text="Kind" Style="{StaticResource FieldLabel}"/>
-                                        <ComboBox SelectedItem="{Binding Kind}">
+                                        <views:FieldCaption Text="Kind" Requirement="Required" Value="{Binding SelectedItem, ElementName=KindBox}"/>
+                                        <ComboBox x:Name="KindBox" SelectedItem="{Binding Kind}">
                                             <sys:String>Certificate</sys:String>
                                             <sys:String>Achievement</sys:String>
                                         </ComboBox>
-                                        <TextBlock Text="Name" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
-                                        <TextBlock Text="Issuer or context" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Text="{Binding Issuer, UpdateSourceTrigger=PropertyChanged}"/>
-                                        <TextBlock Text="Year" Style="{StaticResource FieldLabel}"/>
-                                        <TextBox Text="{Binding Year, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <views:FieldCaption Text="Name" Requirement="Required" Value="{Binding Text, ElementName=CredentialNameBox}"/>
+                                        <TextBox x:Name="CredentialNameBox" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <views:FieldCaption Text="Issuer or context" Requirement="Optional" Value="{Binding Text, ElementName=IssuerBox}"/>
+                                        <TextBox x:Name="IssuerBox" Text="{Binding Issuer, UpdateSourceTrigger=PropertyChanged}"/>
+                                        <views:FieldCaption Text="Year" Requirement="Optional" Value="{Binding Text, ElementName=CredentialYearBox}"/>
+                                        <TextBox x:Name="CredentialYearBox" Text="{Binding Year, UpdateSourceTrigger=PropertyChanged}"/>
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>
@@ -243,10 +243,10 @@
                 </StackPanel>
 
                 <StackPanel x:Name="Step6" Visibility="Collapsed">
-                    <TextBlock Text="Provider" Style="{StaticResource FieldLabel}"/>
-                    <ComboBox ItemsSource="{x:Static mock:Templates.Providers}" SelectedItem="{Binding Profile.Provider}"/>
-                    <TextBlock Text="API token" Style="{StaticResource FieldLabel}"/>
-                    <PasswordBox x:Name="TokenBox" Padding="10,8"/>
+                    <views:FieldCaption Text="Provider" Requirement="Required" Value="{Binding SelectedItem, ElementName=ProviderBox}"/>
+                    <ComboBox x:Name="ProviderBox" ItemsSource="{x:Static mock:Templates.Providers}" SelectedItem="{Binding Profile.Provider}"/>
+                    <views:FieldCaption x:Name="TokenCaption" Text="API token" Requirement="Required"/>
+                    <PasswordBox x:Name="TokenBox" Padding="10,8" PasswordChanged="TokenBox_PasswordChanged"/>
                     <TextBlock x:Name="TokenSaved" Text="A token is already saved on this machine." Foreground="#6D655C" FontSize="12" Margin="0,8,0,0" Visibility="Collapsed"/>
                     <TextBlock TextWrapping="Wrap" Foreground="#6D655C" FontSize="12" Margin="0,8,0,0"
                                Text="This mock stores the token in a local file. It is not encrypted, and no model is called."/>

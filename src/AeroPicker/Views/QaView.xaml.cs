@@ -1,5 +1,9 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
 using AeroPicker.Mock;
 using AeroPicker.Mock.Models;
 
@@ -17,51 +21,74 @@ public partial class QaView : UserControl
         FlowStepBar.Fill(Steps, AppScreen.Qa);
         if (!string.IsNullOrEmpty(store.Draft.ExportFolder))
             PathText.Text = $"Resume and cover letter written to {store.Draft.ExportFolder}.";
+        UpdateEmpty();
+        Loaded += (_, _) => Dispatcher.InvokeAsync(QuestionBox.Focus, DispatcherPriority.Input);
     }
 
-    private void Draft_Click(object sender, RoutedEventArgs e)
+    private void QuestionBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Enter or Key.Return) || Keyboard.Modifiers == ModifierKeys.Shift)
+            return;
+
+        DraftAnswer();
+        e.Handled = true;
+    }
+
+    private void Draft_Click(object sender, RoutedEventArgs e) => DraftAnswer();
+
+    private void DraftAnswer()
     {
         if (string.IsNullOrWhiteSpace(QuestionBox.Text))
         {
-            ShowError("Enter a question first.");
+            ShowNote("Enter a question first.", error: true);
+            QuestionBox.Focus();
             return;
         }
 
-        ShowError(null);
-        AnswerBox.Text = MockTailor.Answer(_store.Profile, _store.Draft, QuestionBox.Text);
-    }
-
-    private void Keep_Click(object sender, RoutedEventArgs e)
-    {
-        if (string.IsNullOrWhiteSpace(QuestionBox.Text) || string.IsNullOrWhiteSpace(AnswerBox.Text))
-        {
-            ShowError("Enter a question and an answer first.");
-            return;
-        }
-
+        var question = QuestionBox.Text.Trim();
         _store.Draft.Questions.Add(new QaPair
         {
-            Question = QuestionBox.Text.Trim(),
-            Answer = AnswerBox.Text.Trim()
+            Question = question,
+            Answer = MockTailor.Answer(_store.Profile, _store.Draft, question)
         });
         QuestionBox.Clear();
-        AnswerBox.Clear();
-        ShowError(null);
+        ShowNote(null, error: false);
+        UpdateEmpty();
+        QuestionBox.Focus();
+        Dispatcher.InvokeAsync(TranscriptScroll.ScrollToEnd, DispatcherPriority.Loaded);
     }
 
-    private void Remove_Click(object sender, RoutedEventArgs e)
+    private void Copy_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is QaPair pair)
-            _store.Draft.Questions.Remove(pair);
+        if ((sender as FrameworkElement)?.DataContext is not QaPair pair || pair.Answer.Length == 0)
+            return;
+
+        try
+        {
+            Clipboard.SetText(pair.Answer);
+            ShowNote("Answer copied.", error: false);
+        }
+        catch (ExternalException)
+        {
+            ShowNote("Could not copy the answer.", error: true);
+        }
     }
 
     private void Back_Click(object sender, RoutedEventArgs e) => _store.Go(AppScreen.Export);
 
     private void Finish_Click(object sender, RoutedEventArgs e) => _store.FinishApplication();
 
-    private void ShowError(string? message)
+    private void UpdateEmpty()
+    {
+        EmptyText.Visibility = _store.Draft.Questions.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ShowNote(string? message, bool error)
     {
         ErrorText.Text = message ?? "";
+        ErrorText.Foreground = error
+            ? new SolidColorBrush(Color.FromRgb(0x8A, 0x3D, 0x12))
+            : new SolidColorBrush(Color.FromRgb(0x1E, 0x4D, 0x3A));
         ErrorText.Visibility = message is null ? Visibility.Collapsed : Visibility.Visible;
     }
 }

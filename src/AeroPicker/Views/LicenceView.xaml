@@ -1,13 +1,14 @@
 <UserControl x:Class="AeroPicker.Views.LicenceView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:AeroPicker.Views">
     <Border Style="{StaticResource Card}" MaxWidth="640" HorizontalAlignment="Center">
         <StackPanel>
             <TextBlock Text="FIRST RUN" Foreground="#1E4D3A" FontSize="12" FontWeight="SemiBold"/>
             <TextBlock Text="Licence" FontFamily="Georgia" FontSize="32" Margin="0,8,0,8"/>
             <TextBlock TextWrapping="Wrap" Foreground="#6D655C" Margin="0,0,0,8"
                        Text="Paste the key issued by your team lead. This mock accepts any non-empty key. Timed and permanent lifespans are not checked yet."/>
-            <TextBlock Text="Licence key" Style="{StaticResource FieldLabel}"/>
+            <views:FieldCaption Text="Licence key" Requirement="Required" Value="{Binding Text, ElementName=KeyBox}"/>
             <TextBox x:Name="KeyBox" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" VerticalScrollBarVisibility="Auto"/>
             <TextBlock x:Name="ErrorText" Foreground="#8A3D12" TextWrapping="Wrap" Margin="0,12,0,0" Visibility="Collapsed"/>
             <Button Content="Licence" HorizontalAlignment="Right" Margin="0,18,0,0" Style="{StaticResource PrimaryButton}" Click="Save_Click"/>

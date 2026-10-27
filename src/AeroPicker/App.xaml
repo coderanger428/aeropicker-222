@@ -5,6 +5,7 @@
              StartupUri="MainWindow.xaml">
     <Application.Resources>
         <views:InverseBooleanConverter x:Key="InverseBool"/>
+        <views:EndDateRequirementConverter x:Key="EndDateRequirement"/>
 
         <Style TargetType="TextBox">
             <Setter Property="Padding" Value="10,8"/>

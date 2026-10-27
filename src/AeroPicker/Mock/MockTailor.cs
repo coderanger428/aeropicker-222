@@ -17,12 +17,17 @@ public static class MockTailor
         if (contact.Length > 0)
             builder.AppendLine(contact);
 
+        var links = Join(" · ",
+            Link("LinkedIn", profile.LinkedIn),
+            Link("GitHub", profile.GitHub),
+            Link("X", profile.X),
+            Link("Facebook", profile.Facebook));
+        if (links.Length > 0)
+            builder.AppendLine(links);
+
         var target = Join(" · ", job.Role, job.Company);
         if (target.Length > 0)
             builder.AppendLine(target);
-
-        if (!string.IsNullOrWhiteSpace(profile.Summary))
-            AppendSection(builder, "Summary", profile.Summary.Trim(), blank);
 
         if (job.Skills.Count > 0)
         {
@@ -31,7 +36,7 @@ public static class MockTailor
         }
 
         AppendEntries(builder, "Experience", blank, profile.Career
-            .Where(entry => HasText(entry.Title) || HasText(entry.Employer))
+            .Where(entry => HasText(entry.Company))
             .Select(entry => CareerBlock(entry)));
 
         AppendEntries(builder, "Projects", blank, profile.Projects
@@ -55,14 +60,10 @@ public static class MockTailor
         var company = string.IsNullOrWhiteSpace(job.Company) ? "your team" : job.Company.Trim();
         var role = string.IsNullOrWhiteSpace(job.Role) ? "the open role" : job.Role.Trim();
         var skills = job.Skills.Count == 0 ? "the work already listed in my resume" : string.Join(", ", job.Skills.Take(4));
-        var latest = profile.Career.FirstOrDefault(entry => HasText(entry.Title) || HasText(entry.Employer));
-        var highlight = latest is null ? "" : Lines(latest.Highlights).FirstOrDefault() ?? "";
-
+        var latest = profile.Career.FirstOrDefault(entry => HasText(entry.Company));
         var experience = latest is null
-            ? "My master resume does not list a past role yet, so this letter stays limited to the facts above."
-            : HasText(highlight)
-                ? $"At {latest.Employer}, as {latest.Title}, I can cite this from my resume: {highlight.TrimEnd('.')}."
-                : $"I most recently worked as {latest.Title} at {latest.Employer}.";
+            ? "My master resume does not list a past company yet, so this letter stays limited to the facts above."
+            : WorkedAt(latest);
 
         if (job.CoverTemplate == "Brief")
         {
@@ -75,14 +76,10 @@ public static class MockTailor
                 """ + Environment.NewLine;
         }
 
-        var summary = string.IsNullOrWhiteSpace(profile.Summary)
-            ? "I have kept this letter to experience that is already in my master resume."
-            : profile.Summary.Trim();
-
         return $"""
             Dear {company} hiring team,
 
-            I am applying for the {role} position. {summary}
+            I am applying for the {role} position. I have kept this letter to experience that is already in my master resume.
 
             {experience}
 
@@ -100,16 +97,13 @@ public static class MockTailor
             ?? profile.Skills.FirstOrDefault(HasText)
             ?? "the work listed in my resume";
 
-        var latest = profile.Career.FirstOrDefault(entry => HasText(entry.Title) || HasText(entry.Employer));
-        var highlight = latest is null ? "" : Lines(latest.Highlights).FirstOrDefault() ?? "";
+        var latest = profile.Career.FirstOrDefault(entry => HasText(entry.Company));
         var role = string.IsNullOrWhiteSpace(job.Role) ? "this" : job.Role.Trim();
         var company = string.IsNullOrWhiteSpace(job.Company) ? "the company" : job.Company.Trim();
 
         var opening = latest is null
             ? $"I would answer from the master resume only. The closest skill I can point to is {skill}."
-            : HasText(highlight)
-                ? $"At {latest.Employer}, as {latest.Title}, I can cite this from my resume: {highlight.TrimEnd('.')}. That work used {skill}."
-                : $"As {latest.Title} at {latest.Employer}, I used {skill}.";
+            : $"{WorkedAt(latest)} I used {skill}.";
 
         return $"{opening} For the {role} application at {company}, I would stop at that fact rather than describe work I have not done.";
     }
@@ -133,16 +127,19 @@ public static class MockTailor
         var dates = entry.Current
             ? Join(" – ", entry.Start, "Present")
             : Join(" – ", entry.Start, entry.End);
-        var lines = new List<string>
-        {
-            Join(" — ", entry.Title, entry.Employer)
-        };
-
+        var place = HasText(entry.Location) ? entry.Location.Trim() : "";
+        var heading = HasText(place) ? $"{entry.Company.Trim()} — {place}" : entry.Company.Trim();
+        var lines = new List<string> { heading };
         if (HasText(dates))
             lines.Add(dates);
-
-        lines.AddRange(Lines(entry.Highlights).Select(line => $"- {line}"));
         return string.Join(Environment.NewLine, lines.Where(HasText));
+    }
+
+    private static string WorkedAt(CareerEntry entry)
+    {
+        var place = HasText(entry.Location) ? $" in {entry.Location.Trim()}" : "";
+        var verb = entry.Current ? "work" : "worked";
+        return $"I {verb} at {entry.Company.Trim()}{place}.";
     }
 
     private static string ProjectBlock(ProjectEntry entry)
@@ -163,6 +160,9 @@ public static class MockTailor
                 yield return line;
         }
     }
+
+    private static string? Link(string label, string? value) =>
+        HasText(value) ? $"{label}: {value!.Trim()}" : null;
 
     private static string Join(string separator, params string?[] parts) =>
         string.Join(separator, parts.Where(HasText).Select(part => part!.Trim()));

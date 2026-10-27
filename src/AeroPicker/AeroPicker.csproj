@@ -8,6 +8,7 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>AeroPicker</RootNamespace>
     <ApplicationTitle>AeroPicker</ApplicationTitle>
+    <Version>0.2.0</Version>
   </PropertyGroup>
 
 </Project>

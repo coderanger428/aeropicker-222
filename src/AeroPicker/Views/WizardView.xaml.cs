@@ -1,6 +1,6 @@
+using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Media;
 using AeroPicker.Mock;
 using AeroPicker.Mock.Models;
@@ -22,9 +22,9 @@ public partial class WizardView : UserControl
 
     private static readonly string[] Copy =
     [
-        "The more specific the master resume is, the sharper each tailored resume can be.",
-        "Add the roles you have held. Put one achievement on each line.",
-        "Include tools, domains, and the kinds of work you can defend in an interview.",
+        "Full name, email, phone, location, and LinkedIn are required. GitHub, X, and Facebook are optional.",
+        "Add each company, where it was, and when you worked there. End date is required unless you currently work there.",
+        "Start typing a technology. Pick a suggestion, or add a name that is not listed yet.",
         "Name the project and the role you played on it.",
         "Add degrees, diplomas, or equivalent study.",
         "Add certificates and achievements you may want a tailored resume to mention.",
@@ -44,9 +44,22 @@ public partial class WizardView : UserControl
         _stepButtons = [StepButton0, StepButton1, StepButton2, StepButton3, StepButton4, StepButton5, StepButton6];
         if (store.HasToken)
             TokenSaved.Visibility = Visibility.Visible;
+        TokenCaption.IsFilled = store.HasToken;
         Eyebrow.Visibility = store.Profile.Completed ? Visibility.Collapsed : Visibility.Visible;
+        store.Profile.Skills.CollectionChanged += OnSkillsChanged;
+        Unloaded += (_, _) => store.Profile.Skills.CollectionChanged -= OnSkillsChanged;
+        UpdateSkillCaption();
+        SkillEntry.Catalog = store.TechNames;
         ShowStep();
     }
+
+    private void OnSkillsChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateSkillCaption();
+
+    private void UpdateSkillCaption() =>
+        SkillCaption.Value = _store.Profile.Skills.Count == 0 ? "" : "set";
+
+    private void TokenBox_PasswordChanged(object sender, RoutedEventArgs e) =>
+        TokenCaption.IsFilled = _store.HasToken || TokenBox.Password.Length > 0;
 
     private void ShowStep()
     {
@@ -111,13 +124,24 @@ public partial class WizardView : UserControl
         ShowStep();
     }
 
-    private void Close_Click(object sender, RoutedEventArgs e) => _store.CloseWizard();
+    private void Close_Click(object sender, RoutedEventArgs e)
+    {
+        var error = ProfileRules.ValidateForSave(_store.Profile);
+        if (error != null)
+        {
+            ShowError(error);
+            return;
+        }
+
+        _store.CloseWizard();
+    }
 
     private bool LeaveCurrent()
     {
-        if (_store.WizardStep == 0 && string.IsNullOrWhiteSpace(_store.Profile.FullName))
+        var error = ProfileRules.ValidateStep(_store.Profile, _store.WizardStep);
+        if (error != null)
         {
-            ShowError("Enter your name to continue.");
+            ShowError(error);
             return false;
         }
 
@@ -132,24 +156,10 @@ public partial class WizardView : UserControl
         ErrorText.Visibility = message is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    private void AddSkill_Click(object sender, RoutedEventArgs e) => AddSkill();
-
-    private void SkillBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    private void Skill_Committed(object sender, string skill)
     {
-        if (e.Key != Key.Enter)
-            return;
-        AddSkill();
-        e.Handled = true;
-    }
-
-    private void AddSkill()
-    {
-        var skill = SkillBox.Text.Trim();
-        if (skill.Length == 0)
-            return;
         if (!_store.Profile.Skills.Any(existing => existing.Equals(skill, StringComparison.OrdinalIgnoreCase)))
             _store.Profile.Skills.Add(skill);
-        SkillBox.Clear();
     }
 
     private void RemoveSkill_Click(object sender, RoutedEventArgs e)

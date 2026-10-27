@@ -31,6 +31,7 @@ public sealed class MockStore
         _profilePath = Path.Combine(_root, "profile.json");
         _tokenPath = Path.Combine(_root, "token.bin");
         _applicationsPath = Path.Combine(_root, "applications.json");
+        TechNames = new TechCatalog(_root);
 
         HasLicence = ReadLicence();
         Profile = ReadJson<Profile>(_profilePath) ?? new Profile();
@@ -44,6 +45,8 @@ public sealed class MockStore
                 ? AppScreen.JobDescription
                 : AppScreen.Wizard;
     }
+
+    public TechCatalog TechNames { get; }
 
     public event Action? Changed;
 
@@ -119,8 +122,9 @@ public sealed class MockStore
 
     public string? CompleteSetup(string? newToken)
     {
-        if (string.IsNullOrWhiteSpace(Profile.FullName))
-            return "Enter your name before finishing.";
+        var profileError = ProfileRules.ValidateForSave(Profile);
+        if (profileError != null)
+            return profileError;
 
         var token = newToken?.Trim() ?? "";
         if (token.Length == 0 && !HasToken)
@@ -157,6 +161,7 @@ public sealed class MockStore
         Draft.Seniority = found.Seniority;
         Draft.Skills = new ObservableCollection<string>(found.Skills);
         Draft.Skipped.Clear();
+        Draft.Questions.Clear();
         StatusMessage = null;
         Screen = AppScreen.JobReview;
         Changed?.Invoke();

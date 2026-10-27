@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using AeroPicker.Mock;
 using AeroPicker.Views;
 
@@ -17,6 +18,11 @@ public partial class MainWindow : Window
 
     private void ShowScreen()
     {
+        var fill = _store.Screen is AppScreen.JobDescription or AppScreen.Qa;
+        PageScroll.VerticalScrollBarVisibility = fill ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
+        Host.HorizontalContentAlignment = fill ? HorizontalAlignment.Stretch : HorizontalAlignment.Left;
+        Host.VerticalContentAlignment = fill ? VerticalAlignment.Stretch : VerticalAlignment.Top;
+
         var showLinks = _store.CanCloseWizard || _store.Screen >= AppScreen.JobDescription;
         ResumeButton.Visibility = showLinks ? Visibility.Visible : Visibility.Collapsed;
         TokenButton.Visibility = showLinks ? Visibility.Visible : Visibility.Collapsed;
@@ -31,6 +37,8 @@ public partial class MainWindow : Window
             AppScreen.Qa => new QaView(_store),
             _ => new JobDescriptionView(_store)
         };
+
+        PageScroll.ScrollToHome();
     }
 
     private void OpenResume_Click(object sender, RoutedEventArgs e) => _store.OpenWizard(0);
