@@ -1,0 +1,13 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets and local env
+.env
+.env.local
+
+# Local database, uploaded PDFs, and extracted text
+backend/data/
+
+.DS_Store
