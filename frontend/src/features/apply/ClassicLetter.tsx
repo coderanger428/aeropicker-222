@@ -1,10 +1,25 @@
 import type { ClassicLetterView } from "../../domain/classicDocument.ts"
 
-export function ClassicLetter({ view }: { view: ClassicLetterView }) {
+export function ClassicLetter({ view, template = "classic" }: { view: ClassicLetterView; template?: string }) {
+  const plain = template === "plain"
+  const sheet =
+    template === "compact"
+      ? "sheet sheet-classic sheet-letter sheet-compact"
+      : plain
+        ? "sheet sheet-classic sheet-letter sheet-plain"
+        : "sheet sheet-classic sheet-letter"
   return (
-    <article className="sheet sheet-classic sheet-letter">
+    <article className={sheet}>
       <p className="classic-name">{view.name}</p>
-      {view.contact.length > 0 ? <p className="classic-contact">{view.contact.join("  ·  ")}</p> : null}
+      {plain
+        ? view.contact.map((line) => (
+            <p key={line} className="classic-contact">
+              {line}
+            </p>
+          ))
+        : view.contact.length > 0
+          ? <p className="classic-contact">{view.contact.join(template === "compact" ? " | " : "  ·  ")}</p>
+          : null}
       {view.date ? <p className="classic-date">{view.date}</p> : null}
       {view.salutation ? <p className="classic-copy">{view.salutation}</p> : null}
       {view.paragraphs.map((paragraph) => (

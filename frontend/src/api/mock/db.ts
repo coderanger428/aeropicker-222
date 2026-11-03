@@ -2,7 +2,7 @@ import type {
   ApplicationStatus,
   CoverLetterDocument,
   ExportedFile,
-  MasterResumeContent,
+  ResumeJson,
   ProfileDetails,
   QaPair,
   ResumeDocument,
@@ -74,7 +74,7 @@ export interface StoredResume {
   fileName: string
   uploadedAt: string
   text: string
-  content?: MasterResumeContent | null
+  content?: ResumeJson | null
 }
 
 export interface StoredApplication {

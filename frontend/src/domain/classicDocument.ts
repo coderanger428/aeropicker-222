@@ -1,5 +1,5 @@
 import { resumeContact } from "./resumeAnalyze.ts"
-import type { ApplicationDetail, CoverLetterDocument, ExportedFile, MasterResumeContent, ProfileDetails } from "./types.ts"
+import type { ApplicationDetail, CoverLetterDocument, ExportedFile, MasterResumeContent, ProfileDetails, ResumeJson } from "./types.ts"
 
 export interface ClassicSkill {
   group: string
@@ -25,10 +25,23 @@ export interface ClassicLink {
   href: string
 }
 
+export interface ClassicSection {
+  heading: string
+  lines: string[]
+}
+
+export type ResumeNode =
+  | { type: "section"; heading: string; children: ResumeNode[] }
+  | { type: "entry"; children: ResumeNode[] }
+  | { type: "bullets"; items: string[] }
+  | { type: "field"; label: string; value: string }
+  | { type: "text"; text: string }
+
 export interface ClassicResumeView {
   name: string
   headline: string
   contact: string
+  contactLines: string[]
   availability: string
   links: ClassicLink[]
   detail: string
@@ -36,6 +49,8 @@ export interface ClassicResumeView {
   skills: ClassicSkill[]
   experience: ClassicJob[]
   education: ClassicSchool[]
+  sections: ClassicSection[]
+  nodes: ResumeNode[]
 }
 
 export interface ClassicLetterView {
@@ -55,17 +70,29 @@ export function plainHeadline(value: string): string {
 }
 
 export function classicResumeView(application: ApplicationDetail, details: ProfileDetails): ClassicResumeView {
-  const master = application.tailorInput?.tailoredResume ?? application.tailorInput?.masterResume
+  const source = assembledResume(application)
+  if (source && !isLegacyResume(source)) {
+    const reference = resumeContact(details)
+    const skip = new Set(
+      [reference.name, reference.email, reference.phone, reference.location, ...reference.links.map((link) => link.url)]
+        .map((item) => item.trim().toLowerCase())
+        .filter(Boolean),
+    )
+    return applyProfileHeader({ ...emptyResume(), nodes: resumeNodes(source, skip) }, details)
+  }
+  const master = source && isLegacyResume(source) ? source : null
   const view =
-    master && (master.name || master.summary || master.experience.length > 0)
+    master && (master.headline || master.summary || master.experience.length > 0 || (master.sections?.length ?? 0) > 0)
       ? fromMaster(master)
       : {
           name: "",
           headline: plainHeadline(application.resume.roleLine),
           contact: "",
+          contactLines: [],
           availability: "",
           links: [],
           detail: "",
+          sections: [],
           summary: application.resume.summary,
           skills: application.resume.skills.length ? [{ group: "Skills", items: application.resume.skills.join(", ") }] : [],
           experience: application.resume.experience.map((item) => ({
@@ -76,6 +103,7 @@ export function classicResumeView(application: ApplicationDetail, details: Profi
             highlights: item.points,
           })),
           education: [],
+          nodes: [],
         }
   return applyProfileHeader(view, details)
 }
@@ -108,11 +136,12 @@ export function documentFiles(application: {
   company: string
   jobTitle: string
   coverLetter: unknown
-  tailorInput?: { masterResume: MasterResumeContent; tailoredResume?: MasterResumeContent | null } | null
+  tailorInput?: { masterResume: ResumeJson; tailoredResume?: ResumeJson | null } | null
 }): ExportedFile[] {
-  const master = application.tailorInput?.tailoredResume ?? application.tailorInput?.masterResume
-  const name = master?.name || application.candidateName || "Resume"
-  const headline = plainHeadline(master?.headline || "") || application.resumeLabel || "Resume"
+  const master = application.tailorInput?.masterResume ?? application.tailorInput?.tailoredResume
+  const legacy = master && isLegacyResume(master) ? master : null
+  const name = application.candidateName || legacy?.name || "Resume"
+  const headline = plainHeadline(legacy?.headline || "") || application.resumeLabel || "Resume"
   const files: ExportedFile[] = [
     {
       kind: "resume",
@@ -137,6 +166,7 @@ function fromMaster(master: MasterResumeContent): ClassicResumeView {
     name: "",
     headline: plainHeadline(master.headline),
     contact: "",
+    contactLines: [],
     availability: master.availability.trim(),
     links: [],
     detail: "",
@@ -156,7 +186,128 @@ function fromMaster(master: MasterResumeContent): ClassicResumeView {
       dates: dates(school.start, school.end),
       degree: school.degree.trim(),
     })),
+    sections: (master.sections ?? [])
+      .map((section) => ({
+        heading: section.heading.trim(),
+        lines: section.lines.map((line) => line.trim()).filter(Boolean),
+      }))
+      .filter((section) => section.heading || section.lines.length > 0),
+    nodes: [],
   }
+}
+
+function emptyResume(): ClassicResumeView {
+  return {
+    name: "",
+    headline: "",
+    contact: "",
+    contactLines: [],
+    availability: "",
+    links: [],
+    detail: "",
+    summary: "",
+    skills: [],
+    experience: [],
+    education: [],
+    sections: [],
+    nodes: [],
+  }
+}
+
+function assembledResume(application: ApplicationDetail): ResumeJson | null {
+  const packet = application.tailorInput
+  if (!packet?.masterResume && !packet?.tailoredResume) return null
+  const master = packet.masterResume
+  const tailored = packet.tailoredResume ?? null
+  const legacyShape = isLegacyResume(master) || isLegacyResume(tailored) || packet.tailoredSummary != null || packet.tailoredExperience != null
+  if (!legacyShape) return tailored ?? master
+  const base = (isLegacyResume(master) ? master : tailored) as unknown as MasterResumeContent
+  const origin = (isLegacyResume(master) ? master : base) as unknown as MasterResumeContent
+  const previous = (isLegacyResume(tailored) ? tailored : null) as unknown as MasterResumeContent | null
+  return {
+    ...base,
+    headline: origin.headline,
+    availability: origin.availability,
+    summary: packet.tailoredSummary ?? previous?.summary ?? base.summary,
+    experience: packet.tailoredExperience ?? previous?.experience ?? base.experience,
+    skills: origin.skills,
+    education: origin.education,
+    sections: origin.sections ?? [],
+  }
+}
+
+export function isLegacyResume(content: unknown): content is MasterResumeContent {
+  if (!content || typeof content !== "object") return false
+  const record = content as Record<string, unknown>
+  for (const key of ["name", "headline", "summary", "skills", "experience", "education"]) {
+    if (!(key in record)) return false
+  }
+  if (!Array.isArray(record.skills) || !Array.isArray(record.experience)) return false
+  if (record.skills.some((item) => !item || typeof item !== "object" || !("items" in item))) return false
+  if (record.experience.some((item) => !item || typeof item !== "object" || !("company" in item) || !("highlights" in item))) return false
+  return true
+}
+
+function resumeNodes(value: unknown, skip: Set<string>): ResumeNode[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return nodesFrom(value, skip)
+  const nodes: ResumeNode[] = []
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    const node = keyedNode(key, item, skip)
+    if (node) nodes.push(node)
+  }
+  return nodes
+}
+
+function keyedNode(key: string, item: unknown, skip: Set<string>): ResumeNode | null {
+  if (item && typeof item === "object" && !Array.isArray(item)) {
+    const children = resumeNodes(item, skip)
+    return children.length ? { type: "section", heading: key, children } : null
+  }
+  if (Array.isArray(item)) {
+    if (item.length > 0 && item.every((entry) => entry && typeof entry === "object" && !Array.isArray(entry))) {
+      const children = item
+        .map((entry) => {
+          const body = resumeNodes(entry, skip)
+          return body.length ? ({ type: "entry", children: body } as ResumeNode) : null
+        })
+        .filter((entry): entry is ResumeNode => entry !== null)
+      return children.length ? { type: "section", heading: key, children } : null
+    }
+    const children = listChildren(item, skip)
+    return children.length ? { type: "section", heading: key, children } : null
+  }
+  const shown = showValue(item, skip)
+  return shown ? { type: "field", label: key, value: shown } : null
+}
+
+function nodesFrom(value: unknown, skip: Set<string>): ResumeNode[] {
+  if (Array.isArray(value)) return listChildren(value, skip)
+  if (value && typeof value === "object") return resumeNodes(value, skip)
+  const shown = showValue(value, skip)
+  return shown ? [{ type: "text", text: shown }] : []
+}
+
+function listChildren(items: unknown[], skip: Set<string>): ResumeNode[] {
+  const bullets: string[] = []
+  const children: ResumeNode[] = []
+  for (const item of items) {
+    if (typeof item === "string") {
+      const shown = showValue(item, skip)
+      if (shown) bullets.push(shown)
+    } else children.push(...nodesFrom(item, skip))
+  }
+  if (bullets.length) children.unshift({ type: "bullets", items: bullets })
+  return children
+}
+
+function showValue(value: unknown, skip: Set<string>): string {
+  if (typeof value === "boolean" || value == null) return ""
+  if (typeof value === "number") return String(value)
+  if (typeof value !== "string") return ""
+  const text = value.trim()
+  if (!text || skip.has(text.toLowerCase())) return ""
+  if (text.toLowerCase() === "present") return "Present"
+  return text.replace(/\b\d{4}-\d{2}\b/g, (token) => formatPeriod(token))
 }
 
 function applyProfileHeader(view: ClassicResumeView, details: ProfileDetails): ClassicResumeView {
@@ -166,6 +317,7 @@ function applyProfileHeader(view: ClassicResumeView, details: ProfileDetails): C
     ...view,
     name: reference.name,
     contact: pipes([reference.location, reference.phone, reference.email], true),
+    contactLines: [reference.location, reference.phone, reference.email].filter(Boolean),
     links,
     detail: pipes([view.availability, ...links.map((link) => link.url)]),
   }
@@ -241,7 +393,25 @@ export function classicResumeLines(view: ClassicResumeView): string[] {
       if (school.degree) lines.push(school.degree)
     }
   }
+  for (const line of nodeLines(view.nodes)) lines.push(line)
   return lines.filter((line) => line !== undefined)
+}
+
+function nodeLines(nodes: ResumeNode[]): string[] {
+  const lines: string[] = []
+  for (const node of nodes) {
+    if (node.type === "section") {
+      if (node.heading) lines.push(node.heading)
+      lines.push(...nodeLines(node.children))
+    } else if (node.type === "entry") {
+      lines.push(...nodeLines(node.children), "")
+    } else if (node.type === "bullets") {
+      for (const item of node.items) lines.push(`- ${item}`)
+    } else if (node.type === "field") {
+      lines.push(`${node.label}: ${node.value}`)
+    } else lines.push(node.text)
+  }
+  return lines
 }
 
 export function classicLetterLines(view: ClassicLetterView): string[] {

@@ -1,11 +1,15 @@
-from app.domain.templates.classic import document_files, render_classic
+from app.domain.templates.classic import document_files, render_classic, render_compact, render_plain
 
 TEMPLATES = {
     "classic": {"id": "classic", "label": "Classic"},
+    "plain": {"id": "plain", "label": "Plain"},
+    "compact": {"id": "compact", "label": "Compact"},
 }
 
 RENDERERS = {
     "classic": render_classic,
+    "plain": render_plain,
+    "compact": render_compact,
 }
 
 

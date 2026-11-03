@@ -3,33 +3,28 @@ from __future__ import annotations
 import json
 from typing import Protocol
 
-# The future model call must follow this. Company names and work periods are the
-# strict part: a master resume often misstates them, and the profile is the reference.
+# Copy the resume into JSON. Keys come from the page. There is no resume schema.
 RESUME_PARSE_RULES = """
-Convert the resume in <resume_text> to JSON. <profile_json> is the source of truth: use its value whenever a key is present. Personal info (name, phone, email, location, links) comes only from the profile, "" if absent.
+Convert the resume in <resume_text> into one JSON object.
 
-Rules:
-- If profile experience or education is non-empty, keep only the matching resume entries. If empty, take them from the resume.
-- Everything else (headline, availability, summary, skills, titles, job locations, highlights) comes from the resume only. Don't invent; use "" or [] if missing.
+Copy the document. Keep every section, heading, and field that is printed, in the order on the page. Use the printed headings and labels as the JSON keys. Nest a value when the page nests it. Use an array when the page repeats the same kind of entry. Copy the wording, dates, and numbers as written.
 
-Output one raw JSON object, no markdown or commentary:
-{"name":"","headline":"","location":"","phone":"","email":"","availability":"","links":[{"label":"","url":""}],"summary":"","skills":[{"group":"","items":[""]}],"experience":[{"company":"","title":"","location":"","start":"","end":"","current":false,"highlights":[""]}],"education":[{"school":"","degree":"","start":"","end":""}]}
+Do not rename anything into a standard resume format. Do not drop a section. Do not invent a field. Do not summarize or rewrite.
+
+Output one raw JSON object and no markdown.
 """.strip()
 
 
 class ResumeAnalyzer(Protocol):
     rules: str
 
-    def analyze(self, text: str, reference: dict) -> dict:
-        """Return the resume JSON. `text` is the PDF extract. `reference` is the profile."""
+    def analyze(self, text: str) -> dict:
+        """Return the resume JSON. `text` is the PDF extract."""
 
 
-def message_parts(text: str, reference: dict) -> list[dict]:
-    """The user message: resume text and profile JSON, each in its own text part."""
-    return [
-        {"type": "text", "text": _tagged("resume_text", text.strip())},
-        {"type": "text", "text": _tagged("profile_json", json.dumps(reference, ensure_ascii=False))},
-    ]
+def message_parts(text: str) -> list[dict]:
+    """The user message: the resume text only."""
+    return [{"type": "text", "text": _tagged("resume_text", text.strip())}]
 
 
 def _tagged(tag: str, value: str) -> str:
@@ -101,27 +96,7 @@ def resume_contact(details: dict | None) -> dict:
 
 
 STATIC_RESUME_CONTENT = {
-    "name": "Static analysis",
-    "headline": "Demo parser result",
-    "location": "",
-    "phone": "",
-    "email": "",
-    "availability": "",
-    "links": [],
-    "summary": "Stand-in JSON from the analyzer interface. No model was called. Company names and work periods are reserved for the profile reference.",
-    "skills": [],
-    "experience": [
-        {
-            "company": "Example Company",
-            "title": "Engineer",
-            "location": "",
-            "start": "Jan 2020",
-            "end": "",
-            "current": True,
-            "highlights": ["Replace this document when the model call is connected."],
-        }
-    ],
-    "education": [],
+    "Notice": "Stand-in JSON from the analyzer interface. No model was called.",
 }
 
 
@@ -130,28 +105,6 @@ class StaticResumeAnalyzer:
 
     rules = RESUME_PARSE_RULES
 
-    def analyze(self, text: str, reference: dict) -> dict:
-        del text, reference
-        return {
-            "name": STATIC_RESUME_CONTENT["name"],
-            "headline": STATIC_RESUME_CONTENT["headline"],
-            "location": STATIC_RESUME_CONTENT["location"],
-            "phone": STATIC_RESUME_CONTENT["phone"],
-            "email": STATIC_RESUME_CONTENT["email"],
-            "availability": STATIC_RESUME_CONTENT["availability"],
-            "links": [],
-            "summary": STATIC_RESUME_CONTENT["summary"],
-            "skills": [],
-            "experience": [
-                {
-                    "company": "Example Company",
-                    "title": "Engineer",
-                    "location": "",
-                    "start": "Jan 2020",
-                    "end": "",
-                    "current": True,
-                    "highlights": ["Replace this document when the model call is connected."],
-                }
-            ],
-            "education": [],
-        }
+    def analyze(self, text: str) -> dict:
+        del text
+        return dict(STATIC_RESUME_CONTENT)

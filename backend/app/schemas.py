@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
@@ -91,30 +93,35 @@ class ProfileOut(ApiModel):
 
 
 class ResumeLinkOut(ApiModel):
-    label: str
+    label: str = ""
     url: str = ""
 
 
 class ResumeSkillGroupOut(ApiModel):
-    group: str
-    items: list[str]
+    group: str = ""
+    items: list[str] = []
 
 
 class ResumeJobOut(ApiModel):
-    company: str
-    title: str
+    company: str = ""
+    title: str = ""
     location: str = ""
-    start: str
+    start: str = ""
     end: str = ""
     current: bool = False
-    highlights: list[str]
+    highlights: list[str] = []
 
 
 class ResumeSchoolOut(ApiModel):
-    school: str
-    degree: str
-    start: str
-    end: str
+    school: str = ""
+    degree: str = ""
+    start: str = ""
+    end: str = ""
+
+
+class ResumeSectionOut(ApiModel):
+    heading: str = ""
+    lines: list[str] = []
 
 
 class MasterResumeContent(ApiModel):
@@ -129,6 +136,7 @@ class MasterResumeContent(ApiModel):
     skills: list[ResumeSkillGroupOut] = []
     experience: list[ResumeJobOut] = []
     education: list[ResumeSchoolOut] = []
+    sections: list[ResumeSectionOut] = []
 
 
 class ResumeOut(ApiModel):
@@ -141,7 +149,7 @@ class ResumeOut(ApiModel):
     character_count: int = 0
     excerpt: str = ""
     applied_count: int = 0
-    content: MasterResumeContent | None = None
+    content: dict[str, Any] | None = None
 
 
 class ExperienceOut(ApiModel):
@@ -234,9 +242,11 @@ class JobAnalysisOut(ApiModel):
 
 
 class TailorPacketOut(ApiModel):
-    master_resume: MasterResumeContent
+    master_resume: dict[str, Any]
     job: ParsedJobOut
-    tailored_resume: MasterResumeContent | None = None
+    tailored_resume: dict[str, Any] | None = None
+    tailored_summary: str | None = None
+    tailored_experience: list[ResumeJobOut] | None = None
 
 
 class ApplicationDetailOut(ApiModel):

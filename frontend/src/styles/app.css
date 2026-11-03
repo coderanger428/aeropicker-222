@@ -784,6 +784,11 @@ table.data-stats {
   font-size: 0.82rem;
 }
 
+.sheet.sheet-classic h3.as-written {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .sheet.sheet-classic h3 {
   margin: 16px 0 6px;
   padding-bottom: 2px;
@@ -825,6 +830,32 @@ table.data-stats {
 .sheet.sheet-classic ul.classic-skills {
   list-style: disc;
   margin-top: 0;
+}
+
+.sheet.sheet-classic.sheet-plain .classic-name,
+.sheet.sheet-classic.sheet-plain .classic-headline,
+.sheet.sheet-classic.sheet-plain .classic-contact,
+.sheet.sheet-classic.sheet-compact .classic-name,
+.sheet.sheet-classic.sheet-compact .classic-headline,
+.sheet.sheet-classic.sheet-compact .classic-contact {
+  text-align: left;
+}
+
+.sheet.sheet-classic.sheet-plain h3 {
+  border-bottom: 0;
+  letter-spacing: 0;
+}
+
+.sheet.sheet-classic.sheet-compact {
+  padding: 24px 32px;
+}
+
+.sheet.sheet-classic.sheet-compact .classic-name {
+  font-size: 1.35rem;
+}
+
+.sheet.sheet-classic.sheet-compact h3 {
+  margin-top: 10px;
 }
 
 .sheet.sheet-classic.sheet-letter .classic-name,

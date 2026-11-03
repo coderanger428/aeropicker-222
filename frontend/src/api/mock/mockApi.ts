@@ -12,7 +12,7 @@ import type {
 } from "../../domain/types.ts"
 import { pdfRejection } from "../../domain/files.ts"
 import { extractPdfText, resumeExcerpt } from "../../domain/pdfText.ts"
-import { profileResumeReference, staticResumeAnalyzer } from "../../domain/resumeAnalyze.ts"
+import { staticResumeAnalyzer } from "../../domain/resumeAnalyze.ts"
 import { deleteResumeFile, saveResumeFile } from "./resumeFiles.ts"
 
 async function readResumeFile(id: string): Promise<Blob | null> {
@@ -305,7 +305,7 @@ export const mockApi: UserApi = {
   async analyzeResume(profileId, resumeId) {
     await settle()
     const user = requireUser()
-    const profile = requireProfile(user.id, profileId)
+    requireProfile(user.id, profileId)
     const resume = db.resumes.find((item) => item.id === resumeId && item.profileId === profileId)
     if (!resume) throw new ApiError("That PDF is no longer stored.", 404)
     const file = await readResumeFile(resumeId)
@@ -317,7 +317,7 @@ export const mockApi: UserApi = {
       throw new ApiError(error instanceof Error ? error.message : "Could not read text from that PDF.")
     }
     resume.text = text
-    resume.content = staticResumeAnalyzer.analyze(text, profileResumeReference(profile.details))
+    resume.content = staticResumeAnalyzer.analyze(text)
     persist()
     return resumeView(resume)
   },

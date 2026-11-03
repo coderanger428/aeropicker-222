@@ -1,4 +1,4 @@
-import type { MasterResumeContent, ProfileDetails } from "./types.ts"
+import type { ProfileDetails, ResumeJson } from "./types.ts"
 
 export interface ProfileResumeReference {
   name: string
@@ -11,19 +11,18 @@ export interface ProfileResumeReference {
 }
 
 export const RESUME_PARSE_RULES = `
-Convert the resume in <resume_text> to JSON. <profile_json> is the source of truth: use its value whenever a key is present. Personal info (name, phone, email, location, links) comes only from the profile, "" if absent.
+Convert the resume in <resume_text> into one JSON object.
 
-Rules:
-- If profile experience or education is non-empty, keep only the matching resume entries. If empty, take them from the resume.
-- Everything else (headline, availability, summary, skills, titles, job locations, highlights) comes from the resume only. Don't invent; use "" or [] if missing.
+Copy the document. Keep every section, heading, and field that is printed, in the order on the page. Use the printed headings and labels as the JSON keys. Nest a value when the page nests it. Use an array when the page repeats the same kind of entry. Copy the wording, dates, and numbers as written.
 
-Output one raw JSON object, no markdown or commentary:
-{"name":"","headline":"","location":"","phone":"","email":"","availability":"","links":[{"label":"","url":""}],"summary":"","skills":[{"group":"","items":[""]}],"experience":[{"company":"","title":"","location":"","start":"","end":"","current":false,"highlights":[""]}],"education":[{"school":"","degree":"","start":"","end":""}]}
+Do not rename anything into a standard resume format. Do not drop a section. Do not invent a field. Do not summarize or rewrite.
+
+Output one raw JSON object and no markdown.
 `.trim()
 
 export interface ResumeAnalyzer {
   rules: string
-  analyze(text: string, reference: ProfileResumeReference): MasterResumeContent
+  analyze(text: string): ResumeJson
 }
 
 function included(value: boolean | undefined): boolean {
@@ -91,36 +90,14 @@ export function profileResumeReference(details: ProfileDetails): ProfileResumeRe
   }
 }
 
-const STATIC_RESUME_CONTENT: MasterResumeContent = {
-  name: "Static analysis",
-  headline: "Demo parser result",
-  location: "",
-  phone: "",
-  email: "",
-  availability: "",
-  links: [],
-  summary:
-    "Stand-in JSON from the analyzer interface. No model was called. Company names and work periods are reserved for the profile reference.",
-  skills: [],
-  experience: [
-    {
-      company: "Example Company",
-      title: "Engineer",
-      location: "",
-      start: "Jan 2020",
-      end: "",
-      current: true,
-      highlights: ["Replace this document when the model call is connected."],
-    },
-  ],
-  education: [],
+const STATIC_RESUME_CONTENT: ResumeJson = {
+  Notice: "Stand-in JSON from the analyzer interface. No model was called.",
 }
 
 export const staticResumeAnalyzer: ResumeAnalyzer = {
   rules: RESUME_PARSE_RULES,
-  analyze(text, reference) {
+  analyze(text) {
     void text
-    void reference
     return structuredClone(STATIC_RESUME_CONTENT)
   },
 }

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import urllib.error
 import urllib.request
+
+log = logging.getLogger("uvicorn.error")
 
 MODELS = {
     "Google": ("gemini-3.8-flash", "gemini-3.6-flash"),
@@ -13,8 +16,8 @@ MODELS = {
     "Anthropic": ("claude-sonnet-4-5", "claude-3-5-sonnet-latest"),
 }
 
-# A missing model, a rate limit, or a temporary capacity error can use the next model.
-_FALLBACK_STATUSES = {404, 429, 503}
+# A missing model, a rate limit, a dropped connection, or a temporary capacity error can use the next model.
+_FALLBACK_STATUSES = {404, 429, 502, 503}
 
 
 class AiError(Exception):
@@ -87,6 +90,7 @@ def _google(model: str, secret: str, system: str, content: str | list[dict], *, 
         except AiError as exc:
             if exc.status != 502:
                 raise
+            log.warning("Google interactions failed for %s (%s); trying generateContent", model, exc)
             return _google_generate(model, secret, system, content, json_mode=json_mode)
     return _google_generate(model, secret, system, content, json_mode=json_mode)
 
@@ -234,22 +238,30 @@ def _anthropic(model: str, secret: str, system: str, content: str | list[dict], 
 
 def _post(url: str, payload: dict, headers: dict, secret: str, timeout: int = 180) -> dict:
     request = urllib.request.Request(url, data=json.dumps(payload).encode(), headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return json.loads(response.read().decode())
-    except TimeoutError as exc:
-        raise AiError("The model provider did not respond in time.", 503) from exc
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        status = exc.code if exc.code in {400, 401, 403, 404, 429, 503} else 502
-        raise AiError(_public_error(detail, secret), status) from exc
-    except urllib.error.URLError as exc:
-        reason = re.sub(r"\s+", " ", str(getattr(exc, "reason", exc) or exc)).strip()[:200]
-        timed_out = "timed out" in reason.lower()
-        message = "The model provider did not respond in time." if timed_out else f"The model provider could not be reached. {reason}".strip()
-        raise AiError(message, 503 if timed_out else 502) from exc
-    except json.JSONDecodeError as exc:
-        raise AiError("The model provider returned a response that was not JSON.") from exc
+    host = urllib.request.urlparse(url).netloc
+    for attempt in (1, 2):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return json.loads(response.read().decode())
+        except TimeoutError as exc:
+            raise AiError("The model provider did not respond in time.", 503) from exc
+        except ConnectionError as exc:
+            log.warning("model connection closed host=%s attempt=%s error=%s", host, attempt, type(exc).__name__)
+            if attempt == 1:
+                continue
+            raise AiError("The model provider closed the connection before sending a response.", 502) from exc
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            status = exc.code if exc.code in {400, 401, 403, 404, 429, 503} else 502
+            raise AiError(_public_error(detail, secret), status) from exc
+        except urllib.error.URLError as exc:
+            reason = re.sub(r"\s+", " ", str(getattr(exc, "reason", exc) or exc)).strip()[:200]
+            timed_out = "timed out" in reason.lower()
+            message = "The model provider did not respond in time." if timed_out else f"The model provider could not be reached. {reason}".strip()
+            raise AiError(message, 503 if timed_out else 502) from exc
+        except json.JSONDecodeError as exc:
+            raise AiError("The model provider returned a response that was not JSON.") from exc
+    raise AiError("The model provider closed the connection before sending a response.", 502)
 
 
 def _public_error(detail: str, secret: str) -> str:

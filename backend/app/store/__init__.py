@@ -7,7 +7,6 @@ from pathlib import Path
 from threading import RLock
 import uuid
 
-from pydantic import ValidationError
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
@@ -16,7 +15,8 @@ from app.domain.ai_client import AiError, complete, complete_json
 from app.domain.generate import build_cover_letter, build_export_files, build_resume, draft_answers, keywords_for
 from app.domain.job_analyze import TAILOR_PROMPT, letter_from_text, tailor_message_parts, tailor_result
 from app.domain.pdf_text import extract_pdf_text, resume_excerpt
-from app.domain.resume_analyze import RESUME_PARSE_RULES, message_parts, profile_reference, resume_contact
+from app.domain.resume_analyze import RESUME_PARSE_RULES, message_parts, resume_contact
+from app.domain.resume_document import as_resume_document, is_legacy_resume
 from app.domain.roles import REQUIRED_ROLE_KEY, canonical_role
 from app.domain.templates import TEMPLATES, document_files, render_pdf
 from app.domain.text import validate_job_link
@@ -25,7 +25,6 @@ from app.schemas import (
     ApplicationRecordOut,
     JobAnalysisOut,
     JobDraftOut,
-    MasterResumeContent,
     ProfileDetails,
     ProfileOut,
     QaPairOut,
@@ -46,6 +45,14 @@ def _write_download(name: str, payload: dict) -> Path:
 
 
 def _resume_document(content: dict) -> dict:
+    if not is_legacy_resume(content):
+        return {
+            "candidate_name": "",
+            "role_line": "",
+            "summary": _collected_text(content),
+            "skills": [],
+            "experience": [],
+        }
     skills: list[str] = []
     for group in content.get("skills") or []:
         if isinstance(group, dict):
@@ -67,14 +74,21 @@ def _resume_document(content: dict) -> dict:
     }
 
 
-def _apply_profile_contact(resume: dict, details: dict | None) -> None:
-    """Replace the contact header with the profile. The master resume does not supply it."""
-    reference = profile_reference(details)
-    resume["name"] = reference["name"]
-    resume["phone"] = reference["phone"]
-    resume["email"] = reference["email"]
-    resume["location"] = reference["location"]
-    resume["links"] = reference["links"]
+def _collected_text(value: object, limit: int = 1500) -> str:
+    chunks: list[str] = []
+
+    def walk(item: object) -> None:
+        if isinstance(item, str) and item.strip():
+            chunks.append(item.strip())
+        elif isinstance(item, dict):
+            for child in item.values():
+                walk(child)
+        elif isinstance(item, list):
+            for child in item:
+                walk(child)
+
+    walk(value)
+    return " ".join(chunks)[:limit]
 
 
 def _with_profile_contact(application: dict, details: dict | None) -> dict:
@@ -101,7 +115,7 @@ def _default_prompts() -> list[dict]:
             "id": "master-resume-parser",
             "position": 1,
             "name": "Master resume parser",
-            "purpose": "Read an uploaded master resume and return resume JSON. Company names and work periods follow the profile.",
+            "purpose": "Copy an uploaded master resume into JSON using the headings and fields printed on the page.",
             "body": RESUME_PARSE_RULES,
             "updated_at": "2026-10-01T12:00:00.000Z",
         },
@@ -109,7 +123,7 @@ def _default_prompts() -> list[dict]:
             "id": "resume-tailor",
             "position": 2,
             "name": "Tailor prompt",
-            "purpose": "Read the raw job description, tailor the master resume, and write the cover letter without inventing experience.",
+            "purpose": "Rewrite the summary and experience for one job, and write the cover letter from those two parts.",
             "body": TAILOR_PROMPT,
             "updated_at": "2026-10-01T12:00:00.000Z",
         },
@@ -675,7 +689,7 @@ class Store:
             character_count=len(text),
             excerpt=resume_excerpt(text),
             applied_count=self._db.applications.count_documents({"base_resume_id": resume["id"]}),
-            content=MasterResumeContent.model_validate(content) if content else None,
+            content=content if isinstance(content, dict) and content else None,
         )
 
     def resume_pdf(self, user_id: str, profile_id: str, resume_id: str) -> tuple[str, bytes]:
@@ -812,18 +826,17 @@ class Store:
                 raise StoreError(str(exc)) from exc
             if not text.strip():
                 raise StoreError("That PDF has no text to read.")
-            reference = profile_reference(profile.get("details"))
             key = dict(self._active_key())
             instructions = self._prompt_body("master-resume-parser")
         try:
-            parsed, usage = complete_json(key, instructions, message_parts(text, reference))
+            parsed, usage = complete_json(key, instructions, message_parts(text))
         except AiError as exc:
             raise StoreError(str(exc), exc.status if exc.status < 500 else 502) from exc
         self._record_usage(key["id"], usage, "Master resume parser")
         try:
-            content = MasterResumeContent.model_validate(parsed).model_dump(by_alias=True)
-        except ValidationError as exc:
-            raise StoreError("The analyzer returned resume JSON that does not match the resume fields.") from exc
+            content = as_resume_document(parsed)
+        except ValueError as exc:
+            raise StoreError(str(exc)) from exc
         with self._lock:
             resume = record(self._db.resumes.find_one({"_id": resume_id, "profile_id": profile_id}), pdf=True)
             if resume is None:
@@ -853,7 +866,7 @@ class Store:
     def tailor(self, user_id: str, profile_id: str, body: dict) -> JobAnalysisOut:
         with self._lock:
             user = self._user(user_id)
-            self._profile(user_id, profile_id)
+            profile = self._profile(user_id, profile_id)
             resumes = self._resumes_for(profile_id)
             if not any(resume["role_key"] == REQUIRED_ROLE_KEY for resume in resumes):
                 raise StoreError("Upload a Full Stack Engineer resume before tailoring.")
@@ -875,29 +888,37 @@ class Store:
             link_error = validate_job_link(job_link)
             if link_error:
                 raise StoreError(link_error)
-            master = MasterResumeContent.model_validate(base["content"]).model_dump(by_alias=True)
+            master = base["content"]
+            if not isinstance(master, dict):
+                raise StoreError("Analyze that master resume before tailoring.")
             role_label = base["role_label"]
             candidate_name = user["name"]
+            signature = str((profile.get("details") or {}).get("full_name") or "").strip()
             base_id = base["id"]
             key = dict(self._active_key())
             tailor_instructions = self._prompt_body("resume-tailor")
         try:
             tailored, tailor_usage = complete_json(
-                key, tailor_instructions, tailor_message_parts(master, job_description, company)
+                key,
+                tailor_instructions,
+                tailor_message_parts(master, job_description, company, signature),
             )
         except AiError as exc:
             raise StoreError(str(exc), exc.status if exc.status < 500 else 502) from exc
         self._record_usage(key["id"], tailor_usage, "Tailor prompt")
         try:
-            result = tailor_result(tailored)
+            result = tailor_result(tailored, master)
         except ValueError as exc:
             path = _write_download("tailor-result.txt", tailored if isinstance(tailored, dict) else {"model": tailored})
             raise StoreError(f"The tailor returned JSON that does not match the resume and cover letter ({exc}). Wrote it to {path}.") from exc
         with self._lock:
             profile = self._profile(user_id, profile_id)
-            _apply_profile_contact(result["resume"], profile.get("details"))
-            letter = letter_from_text(result["cover_letter"], result["resume"].get("name") or "")
-            _write_download("tailor-result.txt", {"resume": result["resume"], "cover_letter": result["cover_letter"]})
+            letter = letter_from_text(result["cover_letter"], signature)
+            merged = result["resume"]
+            _write_download(
+                "tailor-result.txt",
+                {"resume": merged, "cover_letter": result["cover_letter"]},
+            )
             now = _now()
             application_body = {
                 "company": company,
@@ -908,10 +929,10 @@ class Store:
                 "base_resume_id": base_id,
                 "resume_label": role_label,
                 "candidate_name": candidate_name,
-                "tailor_input": {"master_resume": master, "tailored_resume": result["resume"], "job": {}},
+                "tailor_input": {"master_resume": master, "tailored_resume": merged, "job": {}},
                 "status": "tailored",
                 "updated_at": now,
-                "resume": _resume_document(result["resume"]),
+                "resume": _resume_document(merged),
                 "cover_letter": letter,
                 "qa": [],
                 "files": [],

@@ -120,7 +120,7 @@ export function PreviewPage() {
           </button>
         ) : null}
       </div>
-      {pane === "cover" && letter ? <ClassicLetter view={letter} /> : <ClassicResume view={resume} />}
+      {pane === "cover" && letter ? <ClassicLetter view={letter} template={templateId} /> : <ClassicResume view={resume} template={templateId} />}
       <div className="continue-bar continue-bar-end">
         <Button onClick={() => navigate(`/profiles/${profile.id}/apply/${application.id}/qa`)}>Continue</Button>
       </div>

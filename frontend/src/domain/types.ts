@@ -86,6 +86,8 @@ export interface Profile {
   details: ProfileDetails
 }
 
+export type ResumeJson = Record<string, unknown>
+
 export interface MasterResumeContent {
   name: string
   headline: string
@@ -106,6 +108,7 @@ export interface MasterResumeContent {
     highlights: string[]
   }[]
   education: { school: string; degree: string; start: string; end: string }[]
+  sections?: { heading: string; lines: string[] }[]
 }
 
 export interface MasterResume {
@@ -118,7 +121,7 @@ export interface MasterResume {
   characterCount: number
   excerpt: string
   appliedCount: number
-  content: MasterResumeContent | null
+  content: ResumeJson | null
 }
 
 export interface ExperienceBlock {
@@ -174,9 +177,11 @@ export interface JobAnalysis {
 }
 
 export interface TailorPacket {
-  masterResume: MasterResumeContent
+  masterResume: ResumeJson
   job: ParsedJob
-  tailoredResume?: MasterResumeContent | null
+  tailoredResume?: ResumeJson | null
+  tailoredSummary?: string | null
+  tailoredExperience?: MasterResumeContent["experience"] | null
 }
 
 export interface JobDraft {
